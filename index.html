@@ -1,1 +1,156 @@
-Hello World
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+.button {
+    border: none;
+    color: white;
+    padding: 15px 32px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+}
+
+.button1 {background-color: #FF0000;}
+.dot {
+    height: 20px;
+    width: 20px;
+    text-align: center;
+    margin: -5px 0;
+    background-color: #FF0000;
+    border-radius: 50%;
+    display: inline-block;
+}
+.table1, .td1 {
+    border: 1px solid black;
+    border-spacing: 0 0;
+}
+.tdspace {
+    width: 20px;
+}
+</style>
+<title>Page Title</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script type = "text/javascript">
+    let ws
+    function blob2uint(blob) {
+        return new Response(blob).arrayBuffer().then(buffer=>{
+            return [...new Uint8Array(buffer)]
+        });
+    }
+
+    function Buzzer() {
+        let bytes = new ArrayBuffer(1)
+        new DataView(bytes).setInt8(0, 1)
+        ws.send(bytes)
+    }
+
+    function ConnectToIP() {
+        if ("WebSocket" in window) {
+            // Let us open a web socket
+            ws = new WebSocket("ws://" + document.getElementById("ipaddress").value + "/ws/");
+
+            ws.onopen = function() {
+                // Web Socket is connected, send data using send()
+                document.getElementById("statusCircle").style.backgroundColor = "green"
+                document.getElementById("joinButton").disabled = true
+                document.getElementById("ipaddress").disabled = true
+                document.getElementById("username").disabled = true
+
+                let str = document.getElementById("username").value
+
+                let bytes = new ArrayBuffer(str.length + 1)
+                let dataview = new DataView(bytes)
+                dataview.setInt8(0, 0)
+                for (let i = 0; i < str.length; i++) {
+                    dataview.setInt8(i + 1, str.charCodeAt(i))
+                }
+
+                ws.send(bytes)
+            }
+
+            ws.onmessage = async function (evt) {
+                let uintArray = await blob2uint(evt.data)
+
+                if (uintArray[0] === 0)
+                {
+                    let str = ""
+                    for (let i = 1; i < uintArray.length; i++) {
+                        str += String.fromCharCode(uintArray[i])
+                    }
+
+                    let tableHtml = ""
+                    let i = 0
+                    str.split(",").forEach(playerScore =>
+                    {
+                        let nameAndScore = playerScore.split(":")
+                        tableHtml += "<tr id=\"player" + (i++) + "\"><td class=\"td1\">" + nameAndScore[0] + "</td><td class=\"td1\">" + nameAndScore[1] + "</td></tr>"
+                    })
+                    document.getElementById("scoreTable").innerHTML = tableHtml
+                }
+                else if(uintArray[0] === 1)
+                {
+                    let str = ""
+                    for (let i = 1; i < uintArray.length; i++) {
+                        str += String.fromCharCode(uintArray[i])
+                    }
+
+                    let tableHtml = ""
+                    if(str.length > 0)
+                    {
+                        let i = 0
+                        str.split(",").forEach(buzz =>
+                        {
+                            let nameAndDelay = buzz.split(":")
+                            tableHtml += "<tr id=\"player" + (i++) + "\"><td class=\"td1\">" + nameAndDelay[0] + "</td><td class=\"td1\">" + nameAndDelay[1] + "</td></tr>"
+                        })
+                    }
+                    document.getElementById("buzzerTable").innerHTML = tableHtml
+                }
+            }
+
+            ws.onclose = function() {
+                // websocket is closed.
+                document.getElementById("statusCircle").style.backgroundColor = "red"
+                document.getElementById("joinButton").disabled = false
+                document.getElementById("ipaddress").disabled = false
+                document.getElementById("username").disabled = false
+                document.getElementById("scoreTable").innerHTML = ""
+            }
+        } else {
+            // The browser doesn't support WebSocket
+            alert("WebSocket NOT supported by your Browser!");
+        }
+   }
+</script>
+</head>
+<body>
+
+<table>
+    <tr id="sessionData">
+        <td>
+            <input type="text" id="ipaddress" name="ipaddress" placeholder="IP address">
+            <input type="text" id="username" required pattern="[A-Za-z0-9]" name="username" placeholder="Name">
+            <button type="button" id="joinButton" onclick="ConnectToIP()">Join</button>
+            <span id="statusCircle" class="dot"></span>
+            <br>
+            <button class="button button1" onclick="Buzzer()">Buzzer</button>
+            <br>
+            Buzzer queue:
+            <table class="table table1" id="buzzerTable"></table>
+        </td>
+        <td class="tdspace">
+        </td>
+        <td>
+            Players:
+            <table class="table table1" id="scoreTable">
+            </table>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>
